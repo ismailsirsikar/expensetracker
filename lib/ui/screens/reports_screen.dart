@@ -65,7 +65,7 @@ class _ReportsScreenState extends State<ReportsScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 2, vsync: this);
+    _tab = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -136,6 +136,33 @@ class _ReportsScreenState extends State<ReportsScreen>
         (DateTime.now().difference(first).inDays / 30).ceil();
     return expenses.fold(0.0, (s, t) => s + t.amount) /
         (months == 0 ? 1 : months);
+  }
+
+  Map<DateTime, double> _dailySpending(List<TransactionModel> all) {
+    final daily = <DateTime, double>{};
+    for (var t in all.where((t) => t.transactionType == TransactionType.expense)) {
+      final dateOnly = DateTime(t.date.year, t.date.month, t.date.day);
+      daily[dateOnly] = (daily[dateOnly] ?? 0) + t.amount;
+    }
+    return daily;
+  }
+
+  Map<DateTime, double> _weeklySpending(List<TransactionModel> all) {
+    final weekly = <DateTime, double>{};
+    for (var t in all.where((t) => t.transactionType == TransactionType.expense)) {
+      final weekStart = _startOfWeek(t.date);
+      weekly[weekStart] = (weekly[weekStart] ?? 0) + t.amount;
+    }
+    return weekly;
+  }
+
+  Map<DateTime, double> _monthlySpending(List<TransactionModel> all) {
+    final monthly = <DateTime, double>{};
+    for (var t in all.where((t) => t.transactionType == TransactionType.expense)) {
+      final monthStart = DateTime(t.date.year, t.date.month, 1);
+      monthly[monthStart] = (monthly[monthStart] ?? 0) + t.amount;
+    }
+    return monthly;
   }
 
   @override
@@ -270,6 +297,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                   tabs: const [
                     Tab(text: 'Weekly'),
                     Tab(text: 'Monthly'),
+                    Tab(text: 'Trends'),
                   ],
                 ),
               ),
@@ -311,6 +339,12 @@ class _ReportsScreenState extends State<ReportsScreen>
               lowest: lowest,
               unwanted: unwanted,
               unwantedPct: unwantedPct,
+              fmt: fmt,
+            ),
+
+            // ── TRENDS TAB ──────────────────────────────────────────────────
+            _TrendsTab(
+              all: all,
               fmt: fmt,
             ),
           ],
@@ -524,6 +558,135 @@ class _MonthlyTab extends StatelessWidget {
           unwanted: unwanted,
           unwantedPct: unwantedPct,
           fmt: fmt,
+        ),
+      ],
+    );
+  }
+}
+
+// ── Trends Tab ─────────────────────────────────────────────────────────────────
+class _TrendsTab extends StatefulWidget {
+  final List<TransactionModel> all;
+  final NumberFormat fmt;
+
+  const _TrendsTab({
+    required this.all,
+    required this.fmt,
+  });
+
+  @override
+  State<_TrendsTab> createState() => _TrendsTabState();
+}
+
+class _TrendsTabState extends State<_TrendsTab> {
+  int _selectedTrend = 1; // 0: daily, 1: weekly, 2: monthly
+
+  Map<DateTime, double> _getDailySpending() {
+    final daily = <DateTime, double>{};
+    for (var t in widget.all.where((t) => t.transactionType == TransactionType.expense)) {
+      final dateOnly = DateTime(t.date.year, t.date.month, t.date.day);
+      daily[dateOnly] = (daily[dateOnly] ?? 0) + t.amount;
+    }
+    return daily;
+  }
+
+  Map<DateTime, double> _getWeeklySpending() {
+    final weekly = <DateTime, double>{};
+    for (var t in widget.all.where((t) => t.transactionType == TransactionType.expense)) {
+      final weekStart = t.date.subtract(Duration(days: t.date.weekday - 1));
+      weekly[weekStart] = (weekly[weekStart] ?? 0) + t.amount;
+    }
+    return weekly;
+  }
+
+  Map<DateTime, double> _getMonthlySpending() {
+    final monthly = <DateTime, double>{};
+    for (var t in widget.all.where((t) => t.transactionType == TransactionType.expense)) {
+      final monthStart = DateTime(t.date.year, t.date.month, 1);
+      monthly[monthStart] = (monthly[monthStart] ?? 0) + t.amount;
+    }
+    return monthly;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final daily = _getDailySpending();
+    final weekly = _getWeeklySpending();
+    final monthly = _getMonthlySpending();
+
+    final selectedData = _selectedTrend == 0
+        ? daily
+        : (_selectedTrend == 1 ? weekly : monthly);
+
+    if (selectedData.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        children: [
+          Text('Spending Trends',
+              style: const TextStyle(
+                  color: _DS.textSecondary, fontSize: 13, letterSpacing: 0.2)),
+          const SizedBox(height: 32),
+          _EmptyCard(message: 'No spending data available'),
+        ],
+      );
+    }
+
+    final sortedData = selectedData.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+    final maxSpending =
+        sortedData.map((e) => e.value).reduce((a, b) => a > b ? a : b) * 1.15;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      children: [
+        Text('Spending Trends',
+            style: const TextStyle(
+                color: _DS.textSecondary, fontSize: 13, letterSpacing: 0.2)),
+        const SizedBox(height: 12),
+
+        // ── Trend selector buttons ──────────────────────────────────────────
+        Row(
+          children: [
+            Expanded(
+              child: _TrendButton(
+                label: 'Daily',
+                isSelected: _selectedTrend == 0,
+                onTap: () => setState(() => _selectedTrend = 0),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _TrendButton(
+                label: 'Weekly',
+                isSelected: _selectedTrend == 1,
+                onTap: () => setState(() => _selectedTrend = 1),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _TrendButton(
+                label: 'Monthly',
+                isSelected: _selectedTrend == 2,
+                onTap: () => setState(() => _selectedTrend = 2),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+
+        // ── Line chart ──────────────────────────────────────────────────────
+        _TrendLineChart(
+          data: sortedData,
+          maxY: maxSpending,
+          fmt: widget.fmt,
+          trendType: _selectedTrend,
+        ),
+        const SizedBox(height: 20),
+
+        // ── Summary stats ───────────────────────────────────────────────────
+        _TrendSummaryCard(
+          data: sortedData,
+          fmt: widget.fmt,
+          trendType: _selectedTrend,
         ),
       ],
     );
@@ -1278,4 +1441,287 @@ class _TxTile extends StatelessWidget {
       ]),
     );
   }
+}
+
+// ── Trend button ──────────────────────────────────────────────────────────────
+class _TrendButton extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _TrendButton({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            color: isSelected ? _DS.card : _DS.surface,
+            border: Border.all(
+              color: isSelected ? _DS.blue : _DS.border,
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? _DS.blue : _DS.textSecondary,
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+// ── Trend line chart ──────────────────────────────────────────────────────────
+class _TrendLineChart extends StatelessWidget {
+  final List<MapEntry<DateTime, double>> data;
+  final double maxY;
+  final NumberFormat fmt;
+  final int trendType; // 0: daily, 1: weekly, 2: monthly
+
+  const _TrendLineChart({
+    required this.data,
+    required this.maxY,
+    required this.fmt,
+    required this.trendType,
+  });
+
+  String _formatDate(DateTime date, int type) {
+    if (type == 0) {
+      return DateFormat('d MMM').format(date);
+    } else if (type == 1) {
+      return DateFormat('d MMM').format(date);
+    } else {
+      return DateFormat('MMM').format(date);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final spots = List.generate(data.length, (i) {
+      return FlSpot(i.toDouble(), data[i].value);
+    });
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: _DS.surface,
+        border: Border.all(color: _DS.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 220,
+            child: LineChart(
+              LineChartData(
+                maxY: maxY,
+                minY: 0,
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: maxY / 4,
+                  getDrawingHorizontalLine: (_) => FlLine(
+                    color: _DS.border,
+                    strokeWidth: 0.8,
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) => Text(
+                        fmt.format(value),
+                        style: const TextStyle(
+                          color: _DS.textSecondary,
+                          fontSize: 9,
+                        ),
+                      ),
+                      reservedSize: 50,
+                    ),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        final idx = value.toInt();
+                        if (idx >= 0 && idx < data.length) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              _formatDate(data[idx].key, trendType),
+                              style: const TextStyle(
+                                color: _DS.textSecondary,
+                                fontSize: 9,
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox();
+                      },
+                      interval: (data.length / 4).ceil().toDouble(),
+                      reservedSize: 40,
+                    ),
+                  ),
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    color: _DS.blue,
+                    barWidth: 2.5,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, barData, index) =>
+                          FlDotCirclePainter(
+                        radius: 4,
+                        color: _DS.blue,
+                        strokeWidth: 0,
+                      ),
+                    ),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: _DS.blue.withOpacity(0.1),
+                    ),
+                  ),
+                ],
+                clipData: const FlClipData.all(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Trend summary card ────────────────────────────────────────────────────────
+class _TrendSummaryCard extends StatelessWidget {
+  final List<MapEntry<DateTime, double>> data;
+  final NumberFormat fmt;
+  final int trendType;
+
+  const _TrendSummaryCard({
+    required this.data,
+    required this.fmt,
+    required this.trendType,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (data.isEmpty) {
+      return const SizedBox();
+    }
+
+    final values = data.map((e) => e.value).toList();
+    final total = values.fold(0.0, (s, v) => s + v);
+    final average = total / values.length;
+    final max = values.reduce((a, b) => a > b ? a : b);
+    final min = values.reduce((a, b) => a < b ? a : b);
+
+    final trendLabel = trendType == 0
+        ? 'Days'
+        : (trendType == 1 ? 'Weeks' : 'Months');
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: _DS.surface,
+        border: Border.all(color: _DS.border),
+      ),
+      child: Column(
+        children: [
+          _TrendStatRow(
+            icon: Icons.trending_up_rounded,
+            label: 'Total',
+            value: fmt.format(total),
+            color: _DS.blue,
+          ),
+          const SizedBox(height: 12),
+          _TrendStatRow(
+            icon: Icons.show_chart_rounded,
+            label: 'Average per $trendLabel',
+            value: fmt.format(average),
+            color: _DS.orange,
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Divider(color: _DS.border, height: 1),
+          ),
+          _TrendStatRow(
+            icon: Icons.arrow_upward_rounded,
+            label: 'Highest',
+            value: fmt.format(max),
+            color: _DS.red,
+          ),
+          const SizedBox(height: 12),
+          _TrendStatRow(
+            icon: Icons.arrow_downward_rounded,
+            label: 'Lowest',
+            value: fmt.format(min),
+            color: _DS.green,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Trend stat row ────────────────────────────────────────────────────────────
+class _TrendStatRow extends StatelessWidget {
+  final IconData icon;
+  final String label, value;
+  final Color color;
+
+  const _TrendStatRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: _DS.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      );
 }

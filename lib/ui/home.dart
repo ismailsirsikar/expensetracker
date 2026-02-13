@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'screens/pie_chart_screen.dart';
 import 'screens/add_transaction_screen.dart';
 import 'screens/reports_screen.dart';
+import 'screens/all_transactions_screen.dart';
 import '../data/models/transaction_model.dart';
 import '../core/constants/enums.dart';
 import '../logic/providers/transaction_provider.dart';
@@ -214,10 +215,21 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                     ),
                   ),
                   const Spacer(),
-                  Text(
-                    '${recent.length} shown',
-                    style: const TextStyle(
-                        color: _DS.textSecondary, fontSize: 12),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AllTransactionsScreen(),
+                      ),
+                    ),
+                    child: Text(
+                      'View All',
+                      style: TextStyle(
+                        color: _DS.blue,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ]),
               ),
