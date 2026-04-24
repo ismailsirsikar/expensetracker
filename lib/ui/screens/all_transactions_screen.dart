@@ -61,7 +61,9 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
 
     // Filter by type
     if (_typeFilter != null) {
-      filtered = filtered.where((t) => t.transactionType == _typeFilter).toList();
+      filtered = filtered
+          .where((t) => t.transactionType == _typeFilter)
+          .toList();
     }
 
     // Filter by date
@@ -152,17 +154,24 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: _DS.card,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: const BorderSide(color: _DS.border)),
-        title: const Text('Delete transaction',
-            style: TextStyle(color: _DS.textPrimary, fontSize: 16)),
-        content: const Text('Are you sure you want to delete this transaction?',
-            style: TextStyle(color: _DS.textSecondary, fontSize: 14)),
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: _DS.border),
+        ),
+        title: const Text(
+          'Delete transaction',
+          style: TextStyle(color: _DS.textPrimary, fontSize: 16),
+        ),
+        content: const Text(
+          'Are you sure you want to delete this transaction?',
+          style: TextStyle(color: _DS.textSecondary, fontSize: 14),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel',
-                style: TextStyle(color: _DS.textSecondary)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: _DS.textSecondary),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -171,6 +180,30 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
         ],
       ),
     );
+  }
+
+  bool _isRefreshing = false;
+
+  Future<void> _refreshTransactions() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await Provider.of<TransactionProvider>(context, listen: false).reload();
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Transactions refreshed')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Unable to refresh transactions: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
+    }
   }
 
   void _clearFilters() {
@@ -189,7 +222,10 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
     final fmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
     final filtered = _getFiltered(provider.transactions);
     final hasActiveFilters =
-        _startDate != null || _endDate != null || _selectedCategories.isNotEmpty || _typeFilter != null;
+        _startDate != null ||
+        _endDate != null ||
+        _selectedCategories.isNotEmpty ||
+        _typeFilter != null;
 
     return Scaffold(
       backgroundColor: _DS.bg,
@@ -201,9 +237,28 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
             backgroundColor: _DS.bg,
             surfaceTintColor: Colors.transparent,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_rounded, color: _DS.textPrimary),
+              icon: const Icon(
+                Icons.arrow_back_ios_rounded,
+                color: _DS.textPrimary,
+              ),
               onPressed: () => Navigator.of(context).pop(),
             ),
+            actions: [
+              IconButton(
+                icon: _isRefreshing
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.0,
+                          color: _DS.textPrimary,
+                        ),
+                      )
+                    : const Icon(Icons.refresh, color: _DS.textPrimary),
+                onPressed: _isRefreshing ? null : _refreshTransactions,
+                tooltip: 'Refresh transactions',
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: const EdgeInsets.only(left: 20, bottom: 52),
               title: const Text(
@@ -242,8 +297,7 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                         child: _FilterButton(
                           label: 'All Types',
                           isActive: _typeFilter == null,
-                          onTap: () =>
-                              setState(() => _typeFilter = null),
+                          onTap: () => setState(() => _typeFilter = null),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -252,7 +306,8 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                           label: 'Expenses',
                           isActive: _typeFilter == TransactionType.expense,
                           onTap: () => setState(
-                              () => _typeFilter = TransactionType.expense),
+                            () => _typeFilter = TransactionType.expense,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -261,7 +316,8 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                           label: 'Income',
                           isActive: _typeFilter == TransactionType.income,
                           onTap: () => setState(
-                              () => _typeFilter = TransactionType.income),
+                            () => _typeFilter = TransactionType.income,
+                          ),
                         ),
                       ),
                     ],
@@ -288,7 +344,9 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6),
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(16),
                                   color: _selectedCategories.contains(cat)
@@ -326,7 +384,9 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                           onTap: _pickStartDate,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 8),
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(color: _DS.border),
@@ -335,9 +395,13 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('From',
-                                    style: TextStyle(
-                                        color: _DS.textSecondary, fontSize: 10)),
+                                const Text(
+                                  'From',
+                                  style: TextStyle(
+                                    color: _DS.textSecondary,
+                                    fontSize: 10,
+                                  ),
+                                ),
                                 Text(
                                   _startDate == null
                                       ? 'All'
@@ -359,7 +423,9 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                           onTap: _pickEndDate,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 8),
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(color: _DS.border),
@@ -368,9 +434,13 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('To',
-                                    style: TextStyle(
-                                        color: _DS.textSecondary, fontSize: 10)),
+                                const Text(
+                                  'To',
+                                  style: TextStyle(
+                                    color: _DS.textSecondary,
+                                    fontSize: 10,
+                                  ),
+                                ),
                                 Text(
                                   _endDate == null
                                       ? 'Now'
@@ -392,15 +462,21 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                           onTap: _clearFilters,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 8),
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                  color: _DS.red.withOpacity(0.35)),
+                                color: _DS.red.withOpacity(0.35),
+                              ),
                               color: _DS.red.withOpacity(0.1),
                             ),
-                            child: const Icon(Icons.close_rounded,
-                                color: _DS.red, size: 18),
+                            child: const Icon(
+                              Icons.close_rounded,
+                              color: _DS.red,
+                              size: 18,
+                            ),
                           ),
                         ),
                     ],
@@ -413,7 +489,9 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 0),
+                            horizontal: 12,
+                            vertical: 0,
+                          ),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(color: _DS.border),
@@ -455,7 +533,9 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: _DS.border),
@@ -479,9 +559,7 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
             // ── Transaction list ──────────────────────────────────────────────
             Expanded(
               child: filtered.isEmpty
-                  ? _EmptyState(
-                      hasFilters: hasActiveFilters,
-                    )
+                  ? _EmptyState(hasFilters: hasActiveFilters)
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
                       itemCount: filtered.length,
@@ -529,28 +607,26 @@ class _FilterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: isActive ? _DS.blue.withOpacity(0.15) : _DS.card,
-            border: Border.all(
-              color: isActive ? _DS.blue : _DS.border,
-            ),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isActive ? _DS.blue : _DS.textSecondary,
-                fontSize: 11,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
-              ),
-            ),
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: isActive ? _DS.blue.withOpacity(0.15) : _DS.card,
+        border: Border.all(color: isActive ? _DS.blue : _DS.border),
+      ),
+      child: Center(
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? _DS.blue : _DS.textSecondary,
+            fontSize: 11,
+            fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
           ),
         ),
-      );
+      ),
+    ),
+  );
 }
 
 // ── Transaction card ──────────────────────────────────────────────────────────
@@ -559,11 +635,7 @@ class _TxCard extends StatelessWidget {
   final NumberFormat fmt;
   final VoidCallback onDelete;
 
-  const _TxCard({
-    required this.tx,
-    required this.fmt,
-    required this.onDelete,
-  });
+  const _TxCard({required this.tx, required this.fmt, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -591,7 +663,11 @@ class _TxCard extends StatelessWidget {
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        child: const Icon(Icons.delete_outline_rounded, color: _DS.red, size: 20),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: _DS.red,
+          size: 20,
+        ),
       ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
@@ -630,7 +706,9 @@ class _TxCard extends StatelessWidget {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(4),
                           color: color.withOpacity(0.12),
@@ -647,8 +725,10 @@ class _TxCard extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(
                         DateFormat('d MMM, y').format(tx.date),
-                        style:
-                            const TextStyle(color: _DS.textSecondary, fontSize: 10),
+                        style: const TextStyle(
+                          color: _DS.textSecondary,
+                          fontSize: 10,
+                        ),
                       ),
                     ],
                   ),
@@ -679,28 +759,24 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              hasFilters
-                  ? Icons.filter_list_rounded
-                  : Icons.receipt_rounded,
-              size: 48,
-              color: _DS.textSecondary.withOpacity(0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              hasFilters
-                  ? 'No transactions match filters'
-                  : 'No transactions yet',
-              style: const TextStyle(
-                color: _DS.textSecondary,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          hasFilters ? Icons.filter_list_rounded : Icons.receipt_rounded,
+          size: 48,
+          color: _DS.textSecondary.withOpacity(0.5),
         ),
-      );
+        const SizedBox(height: 16),
+        Text(
+          hasFilters ? 'No transactions match filters' : 'No transactions yet',
+          style: const TextStyle(
+            color: _DS.textSecondary,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    ),
+  );
 }

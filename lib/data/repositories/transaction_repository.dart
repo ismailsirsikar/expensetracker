@@ -1,35 +1,88 @@
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../models/transaction_model.dart';
+import '../services/transaction_service.dart';
 import '../../core/constants/enums.dart';
 
 class TransactionRepository {
   static const String transactionsBox = 'transactions';
   static const String categoriesBox = 'categories';
 
+  final TransactionService? apiService;
+
+  TransactionRepository({this.apiService});
+
   Future<void> init() async {
-    await Hive.initFlutter();
-    await Hive.openBox(transactionsBox);
-    await Hive.openBox(categoriesBox);
+    try {
+      // Hive is initialized from `main()`; avoid double-init here which can
+      // cause platform/path races in some release environments.
+      await Hive.openBox(transactionsBox);
+      await Hive.openBox(categoriesBox);
+    } catch (e, st) {
+      debugPrint('TransactionRepository.init() failed: $e\n$st');
+      rethrow;
+    }
   }
 
   Box get _txBox => Hive.box(transactionsBox);
 
-  Future<void> addTransaction(TransactionModel tx) async {
+  Future<TransactionModel> addTransaction(TransactionModel tx) async {
+    if (apiService != null) {
+      try {
+        final created = await apiService!.createTransaction(tx);
+        await _txBox.put(created.id, created.toMap());
+        return created;
+      } catch (e, st) {
+        debugPrint('TransactionRepository.addTransaction api failed: $e\n$st');
+      }
+    }
     await _txBox.put(tx.id, tx.toMap());
+    return tx;
   }
 
-  Future<void> updateTransaction(TransactionModel tx) async {
+  Future<TransactionModel> updateTransaction(TransactionModel tx) async {
+    if (apiService != null) {
+      try {
+        final updated = await apiService!.updateTransaction(tx);
+        await _txBox.put(updated.id, updated.toMap());
+        return updated;
+      } catch (e, st) {
+        debugPrint('TransactionRepository.updateTransaction api failed: $e\n$st');
+      }
+    }
     await _txBox.put(tx.id, tx.toMap());
+    return tx;
   }
 
   Future<void> deleteTransaction(String id) async {
+    if (apiService != null) {
+      try {
+        await apiService!.deleteTransaction(id);
+      } catch (e, st) {
+        debugPrint('TransactionRepository.deleteTransaction api failed: $e\n$st');
+      }
+    }
     await _txBox.delete(id);
   }
 
   List<TransactionModel> getAllTransactions() {
     final values = _txBox.values.cast<Map>().toList();
     return values.map((m) => TransactionModel.fromMap(Map<dynamic, dynamic>.from(m))).toList();
+  }
+
+  Future<void> syncRemoteTransactions({int page = 1, int pageSize = 100}) async {
+    if (apiService == null) return;
+
+    try {
+      final remotePage = await apiService!.getTransactions(page: page, pageSize: pageSize);
+      await _txBox.clear();
+      for (final tx in remotePage.items) {
+        await _txBox.put(tx.id, tx.toMap());
+      }
+    } catch (e, st) {
+      debugPrint('TransactionRepository.syncRemoteTransactions failed: $e\n$st');
+    }
   }
 
   List<TransactionModel> getTransactionsForMonth(int year, int month) {

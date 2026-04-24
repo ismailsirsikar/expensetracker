@@ -1,4 +1,3 @@
-
 import '../../core/constants/enums.dart';
 
 class TransactionModel {
@@ -20,27 +19,41 @@ class TransactionModel {
     required this.subCategory,
   });
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
       'title': title,
       'amount': amount,
       'date': date.toIso8601String(),
-      'transactionType': transactionType.index,
-      'expenseCategory': expenseCategory.index,
+      'transactionType': transactionType.name,
+      'expenseCategory': expenseCategory.name,
       'subCategory': subCategory,
     };
   }
 
-  factory TransactionModel.fromMap(Map<dynamic, dynamic> map) {
+  Map<String, dynamic> toMap() => toJson();
+
+  factory TransactionModel.fromJson(Map<String, dynamic> json) {
     return TransactionModel(
-      id: map['id'] as String,
-      title: map['title'] as String,
-      amount: (map['amount'] as num).toDouble(),
-      date: DateTime.parse(map['date'] as String),
-      transactionType: TransactionType.values[map['transactionType'] as int],
-      expenseCategory: ExpenseCategory.values[map['expenseCategory'] as int],
-      subCategory: map['subCategory'] as String,
+      id: json['id'] as String,
+      title: json['title'] as String,
+      amount: (json['amount'] as num).toDouble(),
+      date: DateTime.parse(json['date'] as String),
+      transactionType: TransactionType.values.firstWhere(
+        (e) => e.name == json['transactionType'],
+        orElse: () => TransactionType.expense,
+      ),
+      expenseCategory: ExpenseCategory.values.firstWhere(
+        (e) => e.name == json['expenseCategory'],
+        orElse: () => ExpenseCategory.need,
+      ),
+      subCategory: json['subCategory'] as String,
+    );
+  }
+
+  factory TransactionModel.fromMap(Map<dynamic, dynamic> map) {
+    return TransactionModel.fromJson(
+      map.map((key, value) => MapEntry(key.toString(), value)),
     );
   }
 }

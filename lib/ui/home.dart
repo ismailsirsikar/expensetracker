@@ -7,8 +7,10 @@ import 'screens/add_transaction_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/all_transactions_screen.dart';
 import '../data/models/transaction_model.dart';
+import '../data/services/auth_service.dart';
 import '../core/constants/enums.dart';
 import '../logic/providers/transaction_provider.dart';
+import 'screens/Log_in_screen.dart';
 
 // ── Shared design system (keep in sync with reports_screen.dart) ──────────────
 class _DS {
@@ -68,6 +70,60 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<TransactionProvider>(context);
+
+    // Prevent build-time access to Hive/Repo before provider initialization —
+    // this was causing release builds to show a white screen (crash on Hive.box).
+    if (!provider.initialized) {
+      return Scaffold(
+        backgroundColor: _DS.bg,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (provider.initError == null) ...[
+                const CircularProgressIndicator(),
+                const SizedBox(height: 12),
+                const Text('Starting app...', style: TextStyle(color: _DS.textSecondary)),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: _DS.card,
+                    border: Border.all(color: _DS.red.withOpacity(0.5)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline_rounded, color: _DS.red, size: 32),
+                      const SizedBox(height: 12),
+                      const Text('Failed to load data',
+                          style: TextStyle(color: _DS.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 6),
+                      Text(
+                        provider.initError ?? 'Unknown error',
+                        style: const TextStyle(color: _DS.textSecondary, fontSize: 12),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: _DS.surface),
+                onPressed: () async {
+                  await provider.init();
+                },
+                child: const Text('Retry', style: TextStyle(color: _DS.textPrimary)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final now = DateTime.now();
     final income = provider.totalIncomeForMonth(now.year, now.month);
     final expense = provider.totalExpenseForMonth(now.year, now.month);
@@ -126,6 +182,18 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                   tooltip: 'Reports',
                   onTap: () => Navigator.push(context,
                       MaterialPageRoute(builder: (_) => const ReportsScreen())),
+                ),
+                _AppBarAction(
+                  icon: Icons.logout_rounded,
+                  tooltip: 'Logout',
+                  onTap: () {
+                    Provider.of<AuthService>(context, listen: false).logout();
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (route) => false,
+                    );
+                  },
                 ),
                 const SizedBox(width: 8),
               ],
