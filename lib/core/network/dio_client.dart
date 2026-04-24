@@ -7,7 +7,8 @@ import 'package:expensetracker/core/network/interceptors/logging_interceptor.dar
 import 'package:expensetracker/core/network/session_manager.dart';
 import 'package:expensetracker/data/models/auth_response_model.dart';
 
-typedef RefreshTokenCallback = Future<AuthResponseModel> Function(String refreshToken);
+typedef RefreshTokenCallback =
+    Future<AuthResponseModel> Function(String refreshToken);
 
 class DioClient {
   final Dio dio;
@@ -23,9 +24,9 @@ class DioClient {
     final dio = Dio(
       BaseOptions(
         baseUrl: baseUrl,
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 15),
-        sendTimeout: const Duration(seconds: 15),
+        connectTimeout: const Duration(minutes: 2),
+        receiveTimeout: const Duration(minutes: 2),
+        sendTimeout: const Duration(minutes: 2),
         responseType: ResponseType.json,
         followRedirects: true,
         maxRedirects: 5,

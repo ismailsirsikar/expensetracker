@@ -29,59 +29,71 @@ class TransactionRepository {
 
   Future<TransactionModel> addTransaction(TransactionModel tx) async {
     if (apiService != null) {
-      try {
-        final created = await apiService!.createTransaction(tx);
-        await _txBox.put(created.id, created.toMap());
-        return created;
-      } catch (e, st) {
-        debugPrint('TransactionRepository.addTransaction api failed: $e\n$st');
-      }
+      final created = await apiService!.createTransaction(tx);
+      await _txBox.put(created.id, created.toMap());
+      return created;
     }
+
     await _txBox.put(tx.id, tx.toMap());
     return tx;
   }
 
   Future<TransactionModel> updateTransaction(TransactionModel tx) async {
     if (apiService != null) {
-      try {
-        final updated = await apiService!.updateTransaction(tx);
-        await _txBox.put(updated.id, updated.toMap());
-        return updated;
-      } catch (e, st) {
-        debugPrint('TransactionRepository.updateTransaction api failed: $e\n$st');
-      }
+      final updated = await apiService!.updateTransaction(tx);
+      await _txBox.put(updated.id, updated.toMap());
+      return updated;
     }
+
     await _txBox.put(tx.id, tx.toMap());
     return tx;
   }
 
   Future<void> deleteTransaction(String id) async {
     if (apiService != null) {
-      try {
-        await apiService!.deleteTransaction(id);
-      } catch (e, st) {
-        debugPrint('TransactionRepository.deleteTransaction api failed: $e\n$st');
-      }
+      await apiService!.deleteTransaction(id);
     }
     await _txBox.delete(id);
   }
 
   List<TransactionModel> getAllTransactions() {
     final values = _txBox.values.cast<Map>().toList();
-    return values.map((m) => TransactionModel.fromMap(Map<dynamic, dynamic>.from(m))).toList();
+    return values
+        .map((m) => TransactionModel.fromMap(Map<dynamic, dynamic>.from(m)))
+        .toList();
   }
 
-  Future<void> syncRemoteTransactions({int page = 1, int pageSize = 100}) async {
+  Future<void> syncRemoteTransactions({
+    int page = 1,
+    int pageSize = 100,
+  }) async {
     if (apiService == null) return;
 
     try {
-      final remotePage = await apiService!.getTransactions(page: page, pageSize: pageSize);
+      var currentPage = page;
       await _txBox.clear();
-      for (final tx in remotePage.items) {
-        await _txBox.put(tx.id, tx.toMap());
+
+      while (true) {
+        final remotePage = await apiService!.getTransactions(
+          page: currentPage,
+          pageSize: pageSize,
+        );
+
+        for (final tx in remotePage.items) {
+          await _txBox.put(tx.id, tx.toMap());
+        }
+
+        if (currentPage >= remotePage.totalPages) {
+          break;
+        }
+
+        currentPage += 1;
       }
     } catch (e, st) {
-      debugPrint('TransactionRepository.syncRemoteTransactions failed: $e\n$st');
+      debugPrint(
+        'TransactionRepository.syncRemoteTransactions failed: $e\n$st',
+      );
+      rethrow;
     }
   }
 
@@ -92,22 +104,28 @@ class TransactionRepository {
   }
 
   double getTotalIncomeForMonth(int year, int month) {
-    final list = getTransactionsForMonth(year, month)
-        .where((t) => t.transactionType == TransactionType.income);
+    final list = getTransactionsForMonth(
+      year,
+      month,
+    ).where((t) => t.transactionType == TransactionType.income);
     return list.fold(0.0, (s, t) => s + t.amount);
   }
 
   double getTotalExpenseForMonth(int year, int month) {
-    final list = getTransactionsForMonth(year, month)
-        .where((t) => t.transactionType == TransactionType.expense);
+    final list = getTransactionsForMonth(
+      year,
+      month,
+    ).where((t) => t.transactionType == TransactionType.expense);
     return list.fold(0.0, (s, t) => s + t.amount);
   }
 
   /// Returns totals grouped by `ExpenseCategory` for the given month.
   Map<ExpenseCategory, double> getCategoryTotalsForMonth(int year, int month) {
     final Map<ExpenseCategory, double> totals = {};
-    final expenses = getTransactionsForMonth(year, month)
-        .where((t) => t.transactionType == TransactionType.expense);
+    final expenses = getTransactionsForMonth(
+      year,
+      month,
+    ).where((t) => t.transactionType == TransactionType.expense);
     for (var e in expenses) {
       totals[e.expenseCategory] = (totals[e.expenseCategory] ?? 0.0) + e.amount;
     }
@@ -119,12 +137,13 @@ class TransactionRepository {
   }
 
   /// Returns a map suitable for feeding pie chart: category -> percentage (0-100)
-  Map<ExpenseCategory, double> getCategoryPercentagesForMonth(int year, int month) {
+  Map<ExpenseCategory, double> getCategoryPercentagesForMonth(
+    int year,
+    int month,
+  ) {
     final totals = getCategoryTotalsForMonth(year, month);
     final totalExpenses = totals.values.fold(0.0, (s, v) => s + v);
     if (totalExpenses == 0) return {for (var k in totals.keys) k: 0.0};
     return totals.map((k, v) => MapEntry(k, (v / totalExpenses) * 100));
   }
 }
-
-

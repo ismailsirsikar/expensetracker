@@ -661,6 +661,8 @@ class _WeeklyTab extends StatelessWidget {
         '${DateFormat('d MMM').format(weekStart)} – ${DateFormat('d MMM').format(weekEnd)}';
 
     return ListView(
+      primary: false,
+      physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       children: [
         // Period label
@@ -768,6 +770,8 @@ class _MonthlyTab extends StatelessWidget {
     final total = catTotals.values.fold(0.0, (s, v) => s + v);
 
     return ListView(
+      primary: false,
+      physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       children: [
         Text(
@@ -932,6 +936,8 @@ class _TrendsTabState extends State<_TrendsTab> {
 
     if (selectedData.isEmpty) {
       return ListView(
+        primary: false,
+        physics: const ClampingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
         children: [
           Text(
@@ -954,6 +960,8 @@ class _TrendsTabState extends State<_TrendsTab> {
         sortedData.map((e) => e.value).reduce((a, b) => a > b ? a : b) * 1.15;
 
     return ListView(
+      primary: false,
+      physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       children: [
         Text(

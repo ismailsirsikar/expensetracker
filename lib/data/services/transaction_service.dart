@@ -53,7 +53,18 @@ class TransactionService {
       ApiPaths.transactions,
       data: transaction.toJson(),
     );
-    return TransactionModel.fromJson(response.data as Map<String, dynamic>);
+
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return TransactionModel.fromJson(data);
+    }
+    if (data is Map) {
+      return TransactionModel.fromJson(Map<String, dynamic>.from(data));
+    }
+
+    throw StateError(
+      'Unexpected create transaction response format: ${response.data}',
+    );
   }
 
   Future<TransactionModel> updateTransaction(
@@ -63,7 +74,20 @@ class TransactionService {
       '${ApiPaths.transactions}/${transaction.id}',
       data: transaction.toJson(),
     );
-    return TransactionModel.fromJson(response.data as Map<String, dynamic>);
+
+    if (response.statusCode == 204 || response.data == null) {
+      return transaction;
+    }
+
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return TransactionModel.fromJson(data);
+    }
+    if (data is Map) {
+      return TransactionModel.fromJson(Map<String, dynamic>.from(data));
+    }
+
+    return transaction;
   }
 
   Future<void> deleteTransaction(String id) async {

@@ -2,20 +2,20 @@ import 'package:expensetracker/data/models/transaction_model.dart';
 import 'package:expensetracker/data/repositories/transaction_repository.dart';
 import 'package:flutter/foundation.dart';
 
-
 class TransactionProvider extends ChangeNotifier {
   final TransactionRepository _repo;
   List<TransactionModel> transactions = [];
 
-  TransactionProvider({TransactionRepository? repository}) : _repo = repository ?? TransactionRepository();
+  TransactionProvider({TransactionRepository? repository})
+    : _repo = repository ?? TransactionRepository();
 
   bool _initialized = false;
   bool get initialized => _initialized;
-bool _isLoading = false;
-bool get isLoading => _isLoading;
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
 
-bool _isRefreshing = false;
-bool get isRefreshing => _isRefreshing;
+  bool _isRefreshing = false;
+  bool get isRefreshing => _isRefreshing;
   String? initError; // non-null when last init failed
 
   /// Initialize repository and load transactions. This method never leaves
@@ -38,45 +38,79 @@ bool get isRefreshing => _isRefreshing;
     }
   }
 
- Future<void> reload({int page = 1, int pageSize = 100}) async {
-  if (_isRefreshing) return;
+  Future<void> reload({int page = 1, int pageSize = 100}) async {
+    if (_isRefreshing) return;
 
-  _isRefreshing = true;
-  notifyListeners();
+    _isRefreshing = true;
+    notifyListeners();
 
-  try {
-    await _repo.syncRemoteTransactions(page: page, pageSize: pageSize);
-    transactions = _repo.getAllTransactions();
-  } catch (e) {
-    debugPrint("Reload failed: $e");
+    try {
+      await _repo.syncRemoteTransactions(page: page, pageSize: pageSize);
+      transactions = _repo.getAllTransactions();
+    } catch (e, st) {
+      debugPrint('TransactionProvider.reload() failed: $e\n$st');
+      rethrow;
+    } finally {
+      _isRefreshing = false;
+      notifyListeners();
+    }
   }
 
-  _isRefreshing = false;
-  notifyListeners();
-}
-
   Future<void> addTransaction(TransactionModel tx) async {
-    final saved = await _repo.addTransaction(tx);
-    transactions.add(saved);
+    _isLoading = true;
     notifyListeners();
+
+    try {
+      final saved = await _repo.addTransaction(tx);
+      transactions.add(saved);
+    } catch (e, st) {
+      debugPrint('TransactionProvider.addTransaction() failed: $e\n$st');
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> updateTransaction(TransactionModel tx) async {
-    final updated = await _repo.updateTransaction(tx);
-    final idx = transactions.indexWhere((t) => t.id == updated.id);
-    if (idx != -1) transactions[idx] = updated;
+    _isLoading = true;
     notifyListeners();
+
+    try {
+      final updated = await _repo.updateTransaction(tx);
+      final idx = transactions.indexWhere((t) => t.id == updated.id);
+      if (idx != -1) transactions[idx] = updated;
+    } catch (e, st) {
+      debugPrint('TransactionProvider.updateTransaction() failed: $e\n$st');
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> deleteTransaction(String id) async {
-    await _repo.deleteTransaction(id);
-    transactions.removeWhere((t) => t.id == id);
+    _isLoading = true;
     notifyListeners();
+
+    try {
+      await _repo.deleteTransaction(id);
+      transactions.removeWhere((t) => t.id == id);
+    } catch (e, st) {
+      debugPrint('TransactionProvider.deleteTransaction() failed: $e\n$st');
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  double totalIncomeForMonth(int year, int month) => _repo.getTotalIncomeForMonth(year, month);
+  double totalIncomeForMonth(int year, int month) =>
+      _repo.getTotalIncomeForMonth(year, month);
 
-  double totalExpenseForMonth(int year, int month) => _repo.getTotalExpenseForMonth(year, month);
+  double totalExpenseForMonth(int year, int month) =>
+      _repo.getTotalExpenseForMonth(year, month);
 
-  Map getCategoryTotalsForMonth(int year, int month) => _repo.getCategoryTotalsForMonth(year, month);
+  Map getCategoryTotalsForMonth(int year, int month) =>
+      _repo.getCategoryTotalsForMonth(year, month);
 }

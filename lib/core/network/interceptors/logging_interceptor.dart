@@ -24,7 +24,13 @@ class LoggingInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (kDebugMode) {
-      debugPrint('<-- ERROR ${err.requestOptions.uri}');
+      debugPrint(
+        '--> ERROR ${err.requestOptions.method} ${err.requestOptions.uri}',
+      );
+      debugPrint('Request headers: ${err.requestOptions.headers}');
+      debugPrint('Request data: ${err.requestOptions.data}');
+      debugPrint('Status code: ${err.response?.statusCode}');
+      debugPrint('Response data: ${err.response?.data}');
       debugPrint(err.toString());
     }
     handler.next(err);
