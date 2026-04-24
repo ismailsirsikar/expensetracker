@@ -1,14 +1,14 @@
 import 'package:dio/dio.dart';
 
 import '../../core/network/api_paths.dart';
-import '../../core/network/token_storage.dart';
+import '../../core/network/session_manager.dart';
 import '../models/auth_response_model.dart';
 
 class AuthService {
   final Dio dio;
-  final TokenStorage tokenStorage;
+  final SessionManager sessionManager;
 
-  AuthService({required this.dio, required this.tokenStorage});
+  AuthService({required this.dio, required this.sessionManager});
 
   Future<AuthResponseModel> login({
     required String email,
@@ -21,7 +21,10 @@ class AuthService {
     final authResponse = AuthResponseModel.fromJson(
       response.data as Map<String, dynamic>,
     );
-    await tokenStorage.saveTokens(authResponse);
+    await sessionManager.setSession(
+      accessToken: authResponse.accessToken,
+      refreshToken: authResponse.refreshToken,
+    );
     return authResponse;
   }
 
@@ -37,12 +40,15 @@ class AuthService {
     final authResponse = AuthResponseModel.fromJson(
       response.data as Map<String, dynamic>,
     );
-    await tokenStorage.saveTokens(authResponse);
+    await sessionManager.setSession(
+      accessToken: authResponse.accessToken,
+      refreshToken: authResponse.refreshToken,
+    );
     return authResponse;
   }
 
   Future<AuthResponseModel> refreshToken() async {
-    final refreshToken = await tokenStorage.getRefreshToken();
+    final refreshToken = await sessionManager.getRefreshToken();
     if (refreshToken == null || refreshToken.isEmpty) {
       throw StateError('Refresh token is missing.');
     }
@@ -53,11 +59,14 @@ class AuthService {
     final authResponse = AuthResponseModel.fromJson(
       response.data as Map<String, dynamic>,
     );
-    await tokenStorage.saveTokens(authResponse);
+    await sessionManager.setSession(
+      accessToken: authResponse.accessToken,
+      refreshToken: authResponse.refreshToken,
+    );
     return authResponse;
   }
 
   Future<void> logout() async {
-    await tokenStorage.clearTokens();
+    await sessionManager.clearSession();
   }
 }

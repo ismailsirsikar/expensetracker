@@ -1,9 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../core/network/dio_client.dart';
-import '../../core/network/token_storage.dart';
 import '../../core/network/api_paths.dart';
+import '../../core/network/dio_client.dart';
+import '../../core/network/session_manager.dart';
 import '../../core/constants/enums.dart';
 import 'auth_service.dart';
 import 'category_service.dart';
@@ -12,17 +12,16 @@ import 'transaction_service.dart';
 import '../models/transaction_model.dart';
 
 Future<void> exampleUsage() async {
-  final tokenStorage = InMemoryTokenStorage();
+  final sessionManager = SessionManager();
 
   final dio = Dio(BaseOptions(baseUrl: ApiPaths.baseUrl));
-  final authService = AuthService(dio: dio, tokenStorage: tokenStorage);
+  late final AuthService authService;
 
   final client = DioClient(
-    tokenStorage: tokenStorage,
-    refreshTokenCallback: (refreshToken) async {
-      return await authService.refreshToken();
-    },
+    sessionManager: sessionManager,
+    refreshTokenCallback: (_) async => authService.refreshToken(),
   );
+  authService = AuthService(dio: dio, sessionManager: sessionManager);
 
   final categoryService = CategoryService(dio: client.dio);
   final reportService = ReportService(dio: client.dio);

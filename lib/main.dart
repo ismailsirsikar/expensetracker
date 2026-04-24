@@ -5,46 +5,45 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'core/network/dio_client.dart';
-import 'core/network/token_storage.dart';
+import 'core/network/session_manager.dart';
 import 'data/repositories/transaction_repository.dart';
 import 'data/services/auth_service.dart';
 import 'data/services/category_service.dart';
 import 'data/services/report_service.dart';
 import 'data/services/transaction_service.dart';
+import 'logic/providers/auth_provider.dart';
 import 'logic/providers/transaction_provider.dart';
+import 'ui/home.dart';
 import 'ui/screens/Log_in_screen.dart';
 
 // Harden app startup so release-only initialization failures don't hang on the
 // splash screen. Logs uncaught errors (visible in adb logcat) and ensures
 // runApp is always reached even if provider init fails.
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // Report framework errors to the current zone so they show up in logs.
-  FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.presentError(details);
-    Zone.current.handleUncaughtError(
-      details.exception,
-      details.stack ?? StackTrace.current,
-    );
-  };
-
   runZonedGuarded(
     () async {
-      try {
-        await Hive.initFlutter();
-      } catch (e, st) {
-        // If Hive initialization fails, log and continue — app should still show an error UI.
-        debugPrint('Hive.initFlutter() failed: $e\n$st');
-      }
+      WidgetsFlutterBinding.ensureInitialized();
 
-      final tokenStorage = InMemoryTokenStorage();
+      // Report framework errors to the current zone so they show up in logs.
+      FlutterError.onError = (FlutterErrorDetails details) {
+        FlutterError.presentError(details);
+        Zone.current.handleUncaughtError(
+          details.exception,
+          details.stack ?? StackTrace.current,
+        );
+      };
+      await Hive.initFlutter();
+      final sessionStorage = await HiveSessionStorage.open();
+      final sessionManager = SessionManager(storage: sessionStorage);
       late final AuthService authService;
       final dioClient = DioClient(
-        tokenStorage: tokenStorage,
+        sessionManager: sessionManager,
         refreshTokenCallback: (_) async => authService.refreshToken(),
       );
-      authService = AuthService(dio: dioClient.dio, tokenStorage: tokenStorage);
+      authService = AuthService(
+        dio: dioClient.dio,
+        sessionManager: sessionManager,
+      );
       final categoryService = CategoryService(dio: dioClient.dio);
       final reportService = ReportService(dio: dioClient.dio);
       final apiRepository = TransactionRepository(
@@ -66,7 +65,14 @@ void main() {
       runApp(
         MultiProvider(
           providers: [
+            Provider<SessionManager>.value(value: sessionManager),
             Provider<AuthService>.value(value: authService),
+            ChangeNotifierProvider<AuthProvider>(
+              create: (_) => AuthProvider(
+                authService: authService,
+                sessionManager: sessionManager,
+              ),
+            ),
             Provider<CategoryService>.value(value: categoryService),
             Provider<ReportService>.value(value: reportService),
             ChangeNotifierProvider<TransactionProvider>.value(
@@ -95,7 +101,30 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const LoginScreen(),
+      home: const AuthGate(),
+    );
+  }
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        if (!authProvider.initialized) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (authProvider.isAuthenticated) {
+          return const Home();
+        }
+
+        return const LoginScreen();
+      },
     );
   }
 }

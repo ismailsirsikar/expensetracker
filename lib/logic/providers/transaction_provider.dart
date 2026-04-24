@@ -11,7 +11,11 @@ class TransactionProvider extends ChangeNotifier {
 
   bool _initialized = false;
   bool get initialized => _initialized;
+bool _isLoading = false;
+bool get isLoading => _isLoading;
 
+bool _isRefreshing = false;
+bool get isRefreshing => _isRefreshing;
   String? initError; // non-null when last init failed
 
   /// Initialize repository and load transactions. This method never leaves
@@ -34,11 +38,22 @@ class TransactionProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> reload({int page = 1, int pageSize = 100}) async {
+ Future<void> reload({int page = 1, int pageSize = 100}) async {
+  if (_isRefreshing) return;
+
+  _isRefreshing = true;
+  notifyListeners();
+
+  try {
     await _repo.syncRemoteTransactions(page: page, pageSize: pageSize);
     transactions = _repo.getAllTransactions();
-    notifyListeners();
+  } catch (e) {
+    debugPrint("Reload failed: $e");
   }
+
+  _isRefreshing = false;
+  notifyListeners();
+}
 
   Future<void> addTransaction(TransactionModel tx) async {
     final saved = await _repo.addTransaction(tx);

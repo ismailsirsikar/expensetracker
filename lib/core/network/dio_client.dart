@@ -1,24 +1,22 @@
 import 'package:dio/dio.dart';
 
+import 'package:expensetracker/core/network/api_paths.dart';
+import 'package:expensetracker/core/network/auth_interceptor.dart';
+import 'package:expensetracker/core/network/interceptors/error_interceptor.dart';
+import 'package:expensetracker/core/network/interceptors/logging_interceptor.dart';
+import 'package:expensetracker/core/network/session_manager.dart';
 import 'package:expensetracker/data/models/auth_response_model.dart';
-import 'token_storage.dart';
-import 'api_paths.dart';
-import 'interceptors/auth_interceptor.dart';
-import 'interceptors/error_interceptor.dart';
-import 'interceptors/logging_interceptor.dart';
-import 'interceptors/refresh_interceptor.dart';
 
-typedef RefreshTokenCallback =
-    Future<AuthResponseModel> Function(String refreshToken);
+typedef RefreshTokenCallback = Future<AuthResponseModel> Function(String refreshToken);
 
 class DioClient {
   final Dio dio;
-  final TokenStorage tokenStorage;
+  final SessionManager sessionManager;
 
-  DioClient._({required this.dio, required this.tokenStorage});
+  DioClient._({required this.dio, required this.sessionManager});
 
   factory DioClient({
-    required TokenStorage tokenStorage,
+    required SessionManager sessionManager,
     required RefreshTokenCallback refreshTokenCallback,
     String baseUrl = ApiPaths.baseUrl,
   }) {
@@ -37,16 +35,15 @@ class DioClient {
     );
 
     dio.interceptors.addAll([
-      AuthInterceptor(tokenStorage),
-      RefreshInterceptor(
+      AuthInterceptor(
         dio: dio,
-        tokenStorage: tokenStorage,
+        sessionManager: sessionManager,
         refreshTokenCallback: refreshTokenCallback,
       ),
       ErrorInterceptor(),
       LoggingInterceptor(),
     ]);
 
-    return DioClient._(dio: dio, tokenStorage: tokenStorage);
+    return DioClient._(dio: dio, sessionManager: sessionManager);
   }
 }
